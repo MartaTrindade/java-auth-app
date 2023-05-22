@@ -1,8 +1,6 @@
 package demo.controllers;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -11,22 +9,17 @@ import demo.DTO.JwtResponseDTO;
 import demo.DTO.LoginRequestDTO;
 import demo.DTO.MessageResponse;
 import demo.DTO.SignupRequestDTO;
-import demo.domain.entities.User;
-import demo.domain.entities.Role;
-import demo.domain.valueobjects.ERole;
 import demo.repositories.UserRepository;
-import demo.repositories.RoleRepository;
 import demo.security.jwt.JwtUtils;
 import demo.security.services.UserDetailsImpl;
 
-import demo.services.UserService;
+import demo.services.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,10 +45,8 @@ public class AuthController {
     UserRepository userRepository;
 
     @Autowired
-    RoleRepository roleRepository;
+    AuthService authService;
 
-    @Autowired
-    PasswordEncoder encoder;
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequestDTO signUpRequestDTO) {
@@ -69,43 +60,7 @@ public class AuthController {
                     .badRequest()
                     .body(new MessageResponse("Error: Email is already in use!"));
         }
-        // Create new user's account
-        User user = new User(signUpRequestDTO.getId(),
-                signUpRequestDTO.getFirstName(),
-                signUpRequestDTO.getLastName(),
-                signUpRequestDTO.getEmail(),
-                signUpRequestDTO.getUsername(),
-                encoder.encode(signUpRequestDTO.getPassword())
-        );
-        Set<String> strRoles = null;
-        Set<Role> roles = new HashSet<>();
-        if (strRoles == null) {
-            Role userRole = roleRepository.findByName(ERole.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(userRole);
-        } else {
-            // In this example we don't choose our own role when creating account
-            strRoles.forEach(role -> {
-                switch (role) {
-                    case "admin":
-                        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(adminRole);
-                        break;
-                    case "mod":
-                        Role modRole = roleRepository.findByName(ERole.ROLE_MODERATOR)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(modRole);
-                        break;
-                    default:
-                        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(userRole);
-                }
-            });
-        }
-        user.setRoles(roles);
-        userRepository.save(user);
+        authService.registerUser(signUpRequestDTO);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
